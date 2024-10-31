@@ -9,5 +9,5 @@ pip install < requirements.txt
 Si se agrega otra libreria 
 
 ```python
-pip install < requirements.txt
+pip freeze > requirements.txt
 ```
