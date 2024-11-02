@@ -4,7 +4,7 @@
 py -m venv .venv
 ```
 ```python
-pip install < requirements.txt
+pip install -r requirements.txt
 ```
 Si se agrega otra libreria 
 

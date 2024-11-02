@@ -1,9 +1,8 @@
-from numpy import empty
 import pandas as pd
 import random, sys
 
 
-def main(localidad : str):
+def main(localidad : str, cantidad_a_generar : int = 7000):
 
     # Filtrar por localidad
     df = pd.read_excel("test.xls", sheet_name=1)
@@ -21,10 +20,10 @@ def main(localidad : str):
         df_primera_localidad = df_localidad[df_localidad['LOCALIDAD'] == primer_valor]
 
         # Tomar prefijos y bloques
-    df_localidad_prefijo_bloque = df_primera_localidad[['INDICATIVO', 'BLOQUE']]
+    df_prefijo_bloque = df_primera_localidad[['BLOQUE', 'INDICATIVO']]
 
-    for index, column in df_localidad_prefijo_bloque.iterrows():
-        print(column)
+    for index, numero in df_prefijo_bloque.iterrows():
+        print("+54", numero['INDICATIVO'], numero['BLOQUE'])
         # generar_numero()
 
         # Generar numeros
@@ -33,17 +32,18 @@ def main(localidad : str):
     
 
 def generar_numero(prefijo, bloque):
-    
-    if not bloque:
-        pass
-    else:
+
+    while len(prefijo) + len(bloque) < 10:
         pass
 
 
 if __name__ == '__main__':
-    
+
     if len(sys.argv) < 2:
         print("Por favor, ingrese una localidad")
         sys.exit(1)
     
-    main(sys.argv[1])
+    if sys.argv == 2:
+        main(sys.argv[1], sys.argv[2])
+    else:
+        main(sys.argv[1])
