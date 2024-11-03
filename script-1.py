@@ -9,7 +9,7 @@ mydb = mysql.connector.connect(
   database="dannafox"
 )
 
-mycurr = mydb.cursor()
+mycurr = mydb.cursor() 
 
 def main(localidad : str, cantidad_a_generar : int = 100):
 
@@ -47,34 +47,29 @@ def main(localidad : str, cantidad_a_generar : int = 100):
 
             listado_numeros.add(generar_numero_telefono(prefijo, bloque))
 
-    guardar(localidad, list(listado_numeros))
+    guardar(localidad, localidad, list(listado_numeros))
 
 
-def guardar(localidad, numeros):
-    # SQL para buscar la localidad por ciudad
-    sql_search_localidad = "SELECT * FROM localidades WHERE ciudad = %s"
+def guardar(provincia , localidad, numeros):
+    sql_search_localidad = "SELECT * FROM localidades WHERE provincia = %s AND ciudad = %s"
     
-    # Buscar el id de la localidad
-    mycurr.execute(sql_search_localidad, (localidad,))
+
+    mycurr.execute(sql_search_localidad, (provincia,localidad))
     query_result = mycurr.fetchone()
     
-    # Si no se encuentra la localidad, crear una nueva
     if query_result is None:
         sql_insert_localidad = "INSERT INTO localidades(ciudad, provincia) VALUES(%s, %s)"
-        mycurr.execute(sql_insert_localidad, (localidad, localidad))
-        mydb.commit()  # Hacer commit después de la inserción
-
-        # Usar LAST_INSERT_ID() para obtener el nuevo id sin una segunda consulta
+        mycurr.execute(sql_insert_localidad, (provincia, localidad))
+        mydb.commit()
+        
         mycurr.execute("SELECT LAST_INSERT_ID()")
         localidad_id = mycurr.fetchone()[0]
     else:
-        # Si la localidad ya existía, obtener el id directamente
         localidad_id = query_result[0]
 
-    # Construir los valores para la inserción en numeros
-    values = [(str(numero), int(localidad_id)) for numero in numeros]  # Asegurarse del orden correcto
+    values = [(str(numero), int(localidad_id)) for numero in numeros] 
+    print(values)
     
-    # SQL para insertar en la tabla numeros
     sql_insert_numeros = "INSERT INTO numeros(numero, localidad_id) VALUES(%s, %s)"
     
     mycurr.executemany(sql_insert_numeros, values)
