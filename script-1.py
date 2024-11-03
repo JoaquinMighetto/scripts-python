@@ -1,10 +1,15 @@
 import pandas as pd
-import random, sys
-import pymysql
+import random, sys, os
+import mysql.connector
 
-conn = pymysql.connect(host='localhost', user='root', passwd='1234', db='dannafox', charset = 'utf8mb4')
-cur = conn.cursor()
+mydb = mysql.connector.connect(
+  host="localhost",
+  user="root",
+  password="1234",
+  database="dannafox"
+)
 
+mycurr = mydb.cursor()
 
 def main(localidad : str, cantidad_a_generar : int = 100):
 
@@ -28,9 +33,9 @@ def main(localidad : str, cantidad_a_generar : int = 100):
 
     length_df = len(df_prefijo_bloque)
 
-    numeros_por_registro = cantidad_a_generar / length_df
+    numeros_por_registro = cantidad_a_generar * 1.3 / length_df
 
-    listado_numeros = []
+    listado_numeros = set()
 
     for index, numero in df_prefijo_bloque.iterrows():
 
@@ -40,26 +45,41 @@ def main(localidad : str, cantidad_a_generar : int = 100):
         for i in range(round(numeros_por_registro)):
             if len(listado_numeros)==cantidad_a_generar: break
 
-            listado_numeros.append(generar_numero_telefono(prefijo, bloque))
+            listado_numeros.add(generar_numero_telefono(prefijo, bloque))
 
-    agregar_a_la_db(listado_numeros)
+    guardar(localidad, list(listado_numeros))
 
 
-    # Agregar a la db
-def agregar_a_la_db(lista : list):
+def guardar(localidad, numeros):
+    # SQL para buscar la localidad por ciudad
+    sql_search_localidad = "SELECT * FROM localidades WHERE ciudad = %s"
     
-    sql = "SELECT * FROM localidades WHERE "
-    localidad_id = cur.fetchone()
-        # Buscar id localidad
-
-            # Si no se encuentra Crear nueva localidad
-                # Obtener la nueva id
-
-            # Buscar la id
-
-            # Insertar en la db
-            
+    # Buscar el id de la localidad
+    mycurr.execute(sql_search_localidad, (localidad,))
+    query_result = mycurr.fetchone()
     
+    # Si no se encuentra la localidad, crear una nueva
+    if query_result is None:
+        sql_insert_localidad = "INSERT INTO localidades(ciudad, provincia) VALUES(%s, %s)"
+        mycurr.execute(sql_insert_localidad, (localidad, localidad))
+        mydb.commit()  # Hacer commit después de la inserción
+
+        # Usar LAST_INSERT_ID() para obtener el nuevo id sin una segunda consulta
+        mycurr.execute("SELECT LAST_INSERT_ID()")
+        localidad_id = mycurr.fetchone()[0]
+    else:
+        # Si la localidad ya existía, obtener el id directamente
+        localidad_id = query_result[0]
+
+    # Construir los valores para la inserción en numeros
+    values = [(str(numero), int(localidad_id)) for numero in numeros]  # Asegurarse del orden correcto
+    
+    # SQL para insertar en la tabla numeros
+    sql_insert_numeros = "INSERT INTO numeros(numero, localidad_id) VALUES(%s, %s)"
+    
+    mycurr.executemany(sql_insert_numeros, values)
+    
+    mydb.commit()
 
 def generar_numero_telefono(prefijo : str, bloque : str) -> str:
     
@@ -74,11 +94,11 @@ def generar_numero_telefono(prefijo : str, bloque : str) -> str:
 
 if __name__ == '__main__':
 
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 3:
         print("Por favor, ingrese una localidad")
         sys.exit(1)
     
-    if sys.argv == 2:
-        main(sys.argv[1], sys.argv[2])
+    if not sys.argv == 2:
+        main(sys.argv[1], int(sys.argv[2]))
     else:
         main(sys.argv[1])
