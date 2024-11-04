@@ -47,7 +47,7 @@ def main(localidad : str, cantidad_a_generar : int = 100):
 
             listado_numeros.add(generar_numero_telefono(prefijo, bloque))
 
-    guardar(localidad, localidad, list(listado_numeros))
+    guardar(localidad, localidad, listado_numeros)
 
 
 def guardar(provincia , localidad, numeros):
@@ -67,7 +67,7 @@ def guardar(provincia , localidad, numeros):
     else:
         localidad_id = query_result[0]
 
-    values = [(str(numero), int(localidad_id)) for numero in numeros] 
+    values = [(int(numero), int(localidad_id)) for numero in numeros] 
     print(values)
     
     sql_insert_numeros = "INSERT INTO numeros(numero, localidad_id) VALUES(%s, %s)"
