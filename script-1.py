@@ -50,8 +50,7 @@ def main(localidad : str, cantidad_a_generar : int = 10000):
         if len(resultado_numeros) >= cantidad_a_generar: break
         resultado_numeros.extend(generar_numero_telefono(prefijo, numeros_por_registro))
 
-    # guardar(localidad, resultado_numeros)
-    return resultado_numeros
+    guardar(localidad, resultado_numeros)
 
 
 def guardar(localidad, numeros):
@@ -135,10 +134,6 @@ if __name__ == '__main__':
         localidades = data['localidades']
 
         for i in localidades:
-            print(i)
-            test.extend(main(i))
-        test_set = set(test)
-        for i in test:
-            if i not in test:
-                print(i)
-    main(sys.argv[1])
+            main(i)
+    else: 
+        main(sys.argv[1])
