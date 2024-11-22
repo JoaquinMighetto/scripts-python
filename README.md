@@ -22,3 +22,11 @@ pip freeze > requirements.txt
 py script-1.py <LOCALIDAD> <CANTIDAD-DE-REGISTROS>
 ```
 El parametro "LOCALIDAD" debe de encontrarse en la columna 'localidad' del test.xls (pag. 2)
+
+#### .env
+```
+DB_HOST=
+DB_NAME=
+DB_USER=
+DB_PASSWORD=
+```

@@ -1,24 +1,19 @@
 import pandas as pd
-import random, sys
+import sys, os, json
 import mysql.connector
+from dotenv import load_dotenv
 
-#Establecer conexión con la db
-mydb = mysql.connector.connect(
-  host="localhost",
-  user="root",
-  password="1234",
-  database="dannafox"
-)
-
-mycurr = mydb.cursor() 
+load_dotenv()
 
 
-def main(localidad : str, cantidad_a_generar : int = 100):
+
+
+def main(localidad : str, cantidad_a_generar : int = 10000):
 
     #Abrir el documento xls
     df = pd.read_excel("test.xls", sheet_name=1)
     # Filtrar por localidad
-    df_localidad = df[df['LOCALIDAD'].str.contains(f'{localidad}', na=False)]
+    df_localidad = df[df['LOCALIDAD'].str.contains(f'{localidad}', na=False, regex=False)]
     
     if df_localidad.empty:
         # Si la localidad no se encuentra, devolver error
@@ -29,56 +24,65 @@ def main(localidad : str, cantidad_a_generar : int = 100):
         #Filtro + de 1 localidad en el df
     if df_localidad.value_counts('LOCALIDAD', sort=False).shape[0] > 1:
 
+        
         primer_valor = df_localidad.value_counts('LOCALIDAD', sort=False).index[0]
         df_primera_localidad = df_localidad[df_localidad['LOCALIDAD'] == primer_valor]
 
         # Tomar prefijos y bloques
         #Crea un df solo con el bloque y indicativo
+    else: 
+        df_primera_localidad = df_localidad
+
     df_prefijo_bloque = df_primera_localidad[['BLOQUE', 'INDICATIVO']]
 
-    length_df = len(df_prefijo_bloque)
+    dict_prefijos = {
+        'localidad': [
+            str(row['INDICATIVO']) + str(row['BLOQUE']) for _, row in df_prefijo_bloque.iterrows()
+        ]
+    }
 
     # Se calcula cuantos numeros deberian de crearse por cada registro
-    numeros_por_registro = cantidad_a_generar * 1.3 / length_df
+    numeros_por_registro = cantidad_a_generar * 1.04 // len(dict_prefijos['localidad'])
 
-    # Se crea un conjunto ya que en una lista prodrian haber duplicados
-    listado_numeros = set()
+    resultado_numeros = list()
 
-    # Por cada registro 
-    for index, numero in df_prefijo_bloque.iterrows():
+    for prefijo in dict_prefijos['localidad']:
+        if len(resultado_numeros) >= cantidad_a_generar: break
+        resultado_numeros.extend(generar_numero_telefono(prefijo, numeros_por_registro))
 
-        # Se toma el bloque y prefijo
-        bloque = numero['BLOQUE']
-        prefijo = numero['INDICATIVO']
-
-        # Por la cantidad de numeros por registro se generan y agregan numeros aleatorios
-        for i in range(round(numeros_por_registro)):
-            if len(listado_numeros)==cantidad_a_generar: break
-
-            # Se utiliza la funcion de crear numeros aleatorios dados un bloque y prefijo
-            listado_numeros.add(generar_numero_telefono(prefijo, bloque))
-
-    # Llama a la funcion para guardar en la base de datos los numeros generados
-    guardar(localidad, localidad, listado_numeros)
+    # guardar(localidad, resultado_numeros)
+    return resultado_numeros
 
 
-def guardar(provincia , localidad, numeros):
+def guardar(localidad, numeros):
+
+    #Establecer conexión con la db
+    mydb = mysql.connector.connect(
+    host=os.getenv("DB_HOST"),
+    user=os.getenv("DB_USER"),
+    password=os.getenv("DB_PASSWORD"),
+    database=os.getenv("DB_NAME")
+    )
+
+    mycurr = mydb.cursor() 
 
     # Se checkea que la localidad exista
-    sql_search_localidad = "SELECT * FROM localidades WHERE provincia = %s AND ciudad = %s"
+    sql_search_localidad = "SELECT * FROM localidades WHERE localidad = %s"
     
 
-    mycurr.execute(sql_search_localidad, (provincia,localidad))
+    mycurr.execute(sql_search_localidad, (localidad,))
     query_result = mycurr.fetchone()
     
     # Si no existe se agrega a la base de datos
     if query_result is None:
-        sql_insert_localidad = "INSERT INTO localidades(ciudad, provincia) VALUES(%s, %s)"
-        mycurr.execute(sql_insert_localidad, (provincia, localidad))
+        sql_insert_localidad = "INSERT INTO localidades(localidad) VALUES(%s)"
+        mycurr.execute(sql_insert_localidad, (localidad,))
         mydb.commit()
         
         mycurr.execute("SELECT LAST_INSERT_ID()")
         localidad_id = mycurr.fetchone()[0]
+    else: 
+        localidad_id = query_result[0]
 
     # Genera una lista de tuplas de la forma (numero, localidad_id)
     values = [(int(numero), int(localidad_id)) for numero in numeros] 
@@ -89,27 +93,52 @@ def guardar(provincia , localidad, numeros):
     
     mydb.commit()
 
-# Funcion que genera numeros de telefono aleatorios 
-def generar_numero_telefono(prefijo : str, bloque : str) -> str:
-    
-    # Concatenan el prefijo y bloque
-    resultado = str(prefijo) + str(bloque)
+def generate_json_localidades():
+    if not os.path.exists("localidades.json"):
+        df = pd.read_excel("test.xls", sheet_name=1)
 
-    # Se agregan digitos del 0-9 hasta que llegue a los 10 digitos
-    for i in range(10 - len(resultado)):
-        resultado += ''.join(random.choice(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
-    ))
+        localidades_unicas = df['LOCALIDAD'].drop_duplicates()
+
+        localidades_dict = {'localidades': list(localidades_unicas)}
+
+        with open('localidades.json', 'w', encoding='utf-8') as file:
+            json.dump(localidades_dict, file, ensure_ascii=False)
+
+
+# Funcion que genera numeros de telefono aleatorios 
+def generar_numero_telefono(prefijo : str, cant) -> str:
     
-    return resultado
+    if cant > 10000:
+        cant = 10000
+    else: cant = int(cant)
+
+    i = 0
+    prefijo_len = len(prefijo)
+    lista_numeros = []
+
+    for c in range(cant):
+        n = - prefijo_len - len(str(i)) + 10
+        lista_numeros.append(prefijo+('0'*n)+str(i))
+        i += 1
+
+    return lista_numeros
 
 
 if __name__ == '__main__':
+    generate_json_localidades()
+    test = []
 
-    if len(sys.argv) < 3:
-        print("Error")
-        sys.exit(1)
-    
-    if not sys.argv == 2:
-        main(sys.argv[1], int(sys.argv[2]))
-    else:
-        main(sys.argv[1])
+    if sys.argv[1] == '--all':
+        with open('localidades.json', 'r', encoding='utf-8') as file:
+            data = json.load(file)
+        
+        localidades = data['localidades']
+
+        for i in localidades:
+            print(i)
+            test.extend(main(i))
+        test_set = set(test)
+        for i in test:
+            if i not in test:
+                print(i)
+    main(sys.argv[1])
